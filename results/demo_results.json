@@ -1,0 +1,112 @@
+{
+  "key_generation": {
+    "private_key_hex": "e9f1161f64c684b613d628767ecd1b9d7487c688bf8e5bc67abb04981c1d59fb",
+    "public_key_hex": "116f681a8c3f4f237529a5db32de03c8ce4e733ff07cb98b44496a3fe7448a1a",
+    "key_size_bits": 256
+  },
+  "firmware_versions": {
+    "v1": {
+      "size": 2393,
+      "sha256": "fb3aaa3d283259dbe4647e5ef714600b3c86e71f2ca12c557e7e38bf64950e38"
+    },
+    "v2": {
+      "size": 2393,
+      "sha256": "f059107df33b109eac5b1d04ebb9a882182637c9a49ec7f9cbfce719e83a2538"
+    },
+    "v3": {
+      "size": 2393,
+      "sha256": "22aa4c6d3f4e3b9fcb9c46d4c80f862dc27e5fde6acdb9f4a15933745f94c4de"
+    }
+  },
+  "delta_patches": [
+    [
+      "v1 \u2192 v2",
+      "2,393",
+      "1,636",
+      "68.4%",
+      "31.6%"
+    ],
+    [
+      "v2 \u2192 v3",
+      "2,393",
+      "1,636",
+      "68.4%",
+      "31.6%"
+    ]
+  ],
+  "update_v1_v2": {
+    "success": true,
+    "manifest_size": 200,
+    "delta_size": 1636,
+    "final_version": 2
+  },
+  "update_v2_v3": {
+    "success": true,
+    "manifest_size": 200,
+    "delta_size": 1636,
+    "final_version": 3
+  },
+  "attack_simulations": [
+    [
+      "Version Mismatch",
+      "v2\u2192v3 manifest sent to v1 device",
+      "Stage 1, Check 2",
+      "\u2713 REJECTED"
+    ],
+    [
+      "Replay Attack",
+      "Old v1\u2192v2 manifest replayed after update",
+      "Stage 1, Check 4",
+      "\u2713 REJECTED"
+    ],
+    [
+      "Tampered Delta",
+      "Delta patch bytes modified in transit",
+      "Stage 2",
+      "\u2713 REJECTED"
+    ]
+  ],
+  "benchmarks": {
+    "crypto_table": [
+      [
+        "Ed25519 Sign (manifest)",
+        "0.1192",
+        "0.0991",
+        "0.1944"
+      ],
+      [
+        "Ed25519 Verify (manifest)",
+        "0.3814",
+        "0.2792",
+        "0.4444"
+      ],
+      [
+        "SHA-256 (1KB)",
+        "0.0061",
+        "0.0055",
+        "0.0297"
+      ],
+      [
+        "SHA-256 (10KB)",
+        "0.0201",
+        "0.0196",
+        "0.0399"
+      ],
+      [
+        "SHA-256 (100KB)",
+        "0.1539",
+        "0.1508",
+        "0.2900"
+      ],
+      [
+        "SHA-256 (1024KB)",
+        "1.5403",
+        "1.5173",
+        "1.7496"
+      ]
+    ],
+    "vlcds_total_ms": 0.5308170046191663,
+    "baseline_total_ms": 0.5066169972997159,
+    "overhead_ms": 0.02420000731945038
+  }
+}

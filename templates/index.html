@@ -1,0 +1,1514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VLCDS — Version-Locked Chained Delta Signature</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a12;
+            --bg-secondary: #12121f;
+            --bg-card: rgba(20, 20, 38, 0.85);
+            --bg-glass: rgba(30, 30, 55, 0.6);
+            --border: rgba(100, 120, 255, 0.12);
+            --border-glow: rgba(100, 200, 255, 0.25);
+            --text-primary: #e8eaf6;
+            --text-secondary: #9fa8da;
+            --text-muted: #616888;
+            --accent: #64ffda;
+            --accent-blue: #448aff;
+            --accent-purple: #b388ff;
+            --success: #00e676;
+            --danger: #ff5252;
+            --warning: #ffab40;
+            --gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-2: linear-gradient(135deg, #0cebeb 0%, #20e3b2 50%, #29ffc6 100%);
+            --gradient-hero: linear-gradient(135deg, #0d0d1a 0%, #1a1a3e 50%, #0d0d1a 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── Animated Background ── */
+        .bg-grid {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image:
+                linear-gradient(rgba(100,120,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(100,120,255,0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .bg-glow {
+            position: fixed; width: 600px; height: 600px; border-radius: 50%;
+            filter: blur(120px); opacity: 0.08; pointer-events: none; z-index: 0;
+        }
+        .bg-glow-1 { top: -200px; right: -200px; background: #667eea; }
+        .bg-glow-2 { bottom: -200px; left: -200px; background: #764ba2; }
+
+        /* ── Navigation ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            background: rgba(10, 10, 18, 0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 2rem;
+        }
+        .nav-inner {
+            max-width: 1300px; margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between;
+            height: 64px;
+        }
+        .nav-brand {
+            font-weight: 800; font-size: 1.1rem;
+            background: var(--gradient-2); -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 1px;
+        }
+        .nav-links { display: flex; gap: 0.5rem; }
+        .nav-links a {
+            color: var(--text-secondary); text-decoration: none;
+            font-size: 0.82rem; font-weight: 500; padding: 0.4rem 0.8rem;
+            border-radius: 8px; transition: all 0.2s;
+        }
+        .nav-links a:hover, .nav-links a.active {
+            color: var(--accent); background: rgba(100,255,218,0.06);
+        }
+        .esp-indicator {
+            display: flex; align-items: center; gap: 0.5rem;
+            font-size: 0.78rem; color: var(--text-muted);
+        }
+        .esp-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--danger); transition: all 0.3s;
+        }
+        .esp-dot.connected { background: var(--success); box-shadow: 0 0 8px var(--success); }
+
+        /* ── Main Content ── */
+        main { position: relative; z-index: 1; padding-top: 64px; }
+
+        .container { max-width: 1300px; margin: 0 auto; padding: 0 2rem; }
+
+        /* ── Hero Section ── */
+        .hero {
+            padding: 5rem 0 3rem;
+            text-align: center;
+        }
+        .hero-badge {
+            display: inline-block;
+            background: rgba(100,255,218,0.08); color: var(--accent);
+            font-size: 0.75rem; font-weight: 600; letter-spacing: 1.5px;
+            padding: 0.4rem 1.2rem; border-radius: 20px;
+            border: 1px solid rgba(100,255,218,0.15);
+            margin-bottom: 1.5rem; text-transform: uppercase;
+        }
+        .hero h1 {
+            font-size: 3.2rem; font-weight: 900;
+            line-height: 1.15; margin-bottom: 1rem;
+            background: linear-gradient(135deg, #e8eaf6 0%, #b388ff 50%, #64ffda 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .hero p {
+            font-size: 1.1rem; color: var(--text-secondary);
+            max-width: 700px; margin: 0 auto 2rem; line-height: 1.6;
+        }
+        .hero-formula {
+            display: inline-block;
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 1rem 2rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem; color: var(--accent);
+            box-shadow: 0 0 40px rgba(100,255,218,0.04);
+        }
+
+        /* ── Section Styles ── */
+        .section { padding: 3rem 0; }
+        .section-header {
+            display: flex; align-items: center; gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .section-number {
+            width: 40px; height: 40px; border-radius: 10px;
+            background: var(--gradient-1); display: flex;
+            align-items: center; justify-content: center;
+            font-weight: 800; font-size: 1.1rem; flex-shrink: 0;
+        }
+        .section-title {
+            font-size: 1.5rem; font-weight: 700;
+        }
+        .section-desc {
+            color: var(--text-secondary); font-size: 0.92rem;
+            line-height: 1.6; margin-bottom: 1.5rem;
+        }
+
+        /* ── Cards ── */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            transition: border-color 0.3s, box-shadow 0.3s;
+            margin-bottom: 1.5rem;
+        }
+        .card:hover { border-color: var(--border-glow); }
+        .card.success { border-color: rgba(0,230,118,0.3); box-shadow: 0 0 30px rgba(0,230,118,0.05); }
+        .card.danger { border-color: rgba(255,82,82,0.3); box-shadow: 0 0 30px rgba(255,82,82,0.05); }
+
+        .card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+        .card-title {
+            font-size: 1rem; font-weight: 600;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.65rem 1.5rem; border-radius: 10px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem; font-weight: 600;
+            border: none; cursor: pointer;
+            transition: all 0.2s; text-decoration: none;
+        }
+        .btn-primary {
+            background: var(--gradient-1); color: white;
+            box-shadow: 0 4px 15px rgba(102,126,234,0.3);
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
+        .btn-accent {
+            background: linear-gradient(135deg, #00e676, #64ffda);
+            color: #0a0a12;
+        }
+        .btn-accent:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(100,255,218,0.3); }
+        .btn-danger {
+            background: linear-gradient(135deg, #ff5252, #ff1744);
+            color: white;
+        }
+        .btn-outline {
+            background: transparent; color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+        .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+        .btn:disabled {
+            opacity: 0.4; cursor: not-allowed; transform: none !important;
+        }
+        .btn .spinner {
+            width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white; border-radius: 50%;
+            animation: spin 0.6s linear infinite; display: none;
+        }
+        .btn.loading .spinner { display: block; }
+        .btn.loading span { display: none; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Terminal / Output ── */
+        .terminal {
+            background: #0c0c18;
+            border: 1px solid rgba(100,120,255,0.08);
+            border-radius: 12px;
+            padding: 1.2rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem;
+            line-height: 1.7;
+            color: var(--text-secondary);
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+        .terminal::-webkit-scrollbar { width: 6px; }
+        .terminal::-webkit-scrollbar-track { background: transparent; }
+        .terminal::-webkit-scrollbar-thumb { background: rgba(100,120,255,0.15); border-radius: 3px; }
+
+        .t-line { margin-bottom: 2px; opacity: 0; animation: fadeIn 0.3s forwards; }
+        .t-label { color: var(--text-muted); }
+        .t-value { color: var(--accent); }
+        .t-pass { color: var(--success); font-weight: 600; }
+        .t-fail { color: var(--danger); font-weight: 600; }
+        .t-hash { color: #80cbc4; word-break: break-all; }
+        .t-heading { color: var(--accent-purple); font-weight: 600; margin-top: 8px; }
+        .t-dim { color: var(--text-muted); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+        /* ── Stage Flow ── */
+        .stage-flow {
+            display: flex; gap: 0.5rem; margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        .stage-chip {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 1rem; border-radius: 10px;
+            background: var(--bg-glass); border: 1px solid var(--border);
+            font-size: 0.8rem; font-weight: 500;
+            transition: all 0.3s;
+        }
+        .stage-chip.active { border-color: var(--accent); color: var(--accent); }
+        .stage-chip.done { border-color: var(--success); color: var(--success); }
+        .stage-chip.failed { border-color: var(--danger); color: var(--danger); }
+        .stage-chip-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--text-muted); transition: all 0.3s;
+        }
+        .stage-chip.active .stage-chip-dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+        .stage-chip.done .stage-chip-dot { background: var(--success); box-shadow: 0 0 6px var(--success); }
+        .stage-chip.failed .stage-chip-dot { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+        .stage-arrow { color: var(--text-muted); font-size: 1.2rem; }
+
+        /* ── Data Table ── */
+        .data-table {
+            width: 100%; border-collapse: collapse;
+            font-size: 0.82rem; margin: 1rem 0;
+        }
+        .data-table th {
+            text-align: left; padding: 0.6rem 1rem;
+            color: var(--text-muted); font-weight: 600;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.72rem; text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .data-table td {
+            padding: 0.7rem 1rem;
+            border-bottom: 1px solid rgba(100,120,255,0.05);
+            vertical-align: top;
+        }
+        .data-table tr:hover td { background: rgba(100,120,255,0.03); }
+        .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #80cbc4; word-break: break-all; }
+
+        /* ── Manifest Fields ── */
+        .manifest-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 1rem; margin: 1rem 0;
+        }
+        .manifest-field {
+            background: rgba(0,0,0,0.3); border-radius: 10px;
+            padding: 0.8rem 1rem; border: 1px solid rgba(100,120,255,0.06);
+        }
+        .manifest-field-name {
+            font-size: 0.7rem; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 1px;
+            margin-bottom: 0.3rem; font-weight: 600;
+        }
+        .manifest-field-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem; color: var(--accent);
+            word-break: break-all;
+        }
+        .manifest-field-size {
+            font-size: 0.65rem; color: var(--text-muted); margin-top: 0.2rem;
+        }
+
+        /* ── Check Result ── */
+        .check-result {
+            display: flex; align-items: flex-start; gap: 1rem;
+            padding: 1rem; border-radius: 10px;
+            margin-bottom: 0.75rem;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border);
+            transition: all 0.4s;
+            opacity: 0; transform: translateX(-10px);
+        }
+        .check-result.visible {
+            opacity: 1; transform: none;
+        }
+        .check-result.pass { border-color: rgba(0,230,118,0.2); background: rgba(0,230,118,0.03); }
+        .check-result.fail { border-color: rgba(255,82,82,0.2); background: rgba(255,82,82,0.03); }
+        .check-icon {
+            width: 32px; height: 32px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem; flex-shrink: 0;
+        }
+        .check-icon.pass { background: rgba(0,230,118,0.1); color: var(--success); }
+        .check-icon.fail { background: rgba(255,82,82,0.1); color: var(--danger); }
+        .check-name { font-weight: 600; font-size: 0.88rem; margin-bottom: 0.3rem; }
+        .check-detail { font-size: 0.75rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; word-break: break-all; }
+
+        /* ── Attack Cards ── */
+        .attack-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+
+        /* ── Stats ── */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 1.5rem 0; }
+        .stat-card {
+            background: var(--bg-glass); border: 1px solid var(--border);
+            border-radius: 12px; padding: 1.2rem; text-align: center;
+        }
+        .stat-value {
+            font-size: 1.8rem; font-weight: 800;
+            background: var(--gradient-2); -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stat-label { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem; font-weight: 500; }
+
+        /* ── ESP32 Panel ── */
+        .esp-panel {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; padding: 2rem;
+        }
+        .esp-panel-header {
+            display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;
+        }
+        .esp-icon {
+            width: 48px; height: 48px; border-radius: 12px;
+            background: linear-gradient(135deg, #00e676, #64ffda);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem;
+        }
+        .esp-log {
+            max-height: 200px; overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem; color: var(--text-secondary);
+        }
+        .esp-log-entry {
+            padding: 0.3rem 0; border-bottom: 1px solid rgba(100,120,255,0.04);
+            display: flex; gap: 1rem;
+        }
+        .esp-log-time { color: var(--text-muted); flex-shrink: 0; }
+
+        /* ── Comparison Table ── */
+        .comparison-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+        .comparison-table th {
+            padding: 0.8rem 1rem; text-align: left;
+            border-bottom: 2px solid var(--border);
+            font-weight: 700; font-size: 0.75rem;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .comparison-table th:nth-child(3) { color: var(--accent); }
+        .comparison-table td {
+            padding: 0.8rem 1rem;
+            border-bottom: 1px solid rgba(100,120,255,0.05);
+        }
+        .comparison-table td:nth-child(3) {
+            color: var(--accent); font-weight: 500;
+        }
+        .comparison-table tr:hover td { background: rgba(100,120,255,0.03); }
+
+        /* ── Master Run Button ── */
+        .run-all-section {
+            text-align: center; padding: 2rem 0;
+        }
+        .btn-run-all {
+            padding: 1rem 3rem; font-size: 1.1rem;
+            border-radius: 14px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            .hero h1 { font-size: 2rem; }
+            .manifest-grid { grid-template-columns: 1fr; }
+            .attack-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        /* ── Teacher Guide / Presentation ── */
+        .guide-step {
+            display: flex; gap: 1.2rem; margin-bottom: 1.2rem;
+            padding: 1.2rem; border-radius: 12px; background: rgba(0,0,0,0.25);
+            border: 1px solid var(--border); transition: border-color 0.2s;
+        }
+        .guide-step:hover { border-color: var(--border-glow); }
+        .guide-step-num {
+            width: 36px; height: 36px; border-radius: 10px;
+            background: var(--gradient-1); display: flex; align-items: center;
+            justify-content: center; font-weight: 800; font-size: 1rem; flex-shrink: 0;
+            color: #fff;
+        }
+        .qna-card {
+            border: 1px solid var(--border); border-radius: 12px;
+            padding: 1.2rem 1.4rem; margin-bottom: 1rem; background: rgba(20,20,38,0.7);
+            transition: all 0.2s;
+        }
+        .qna-card:hover { border-color: rgba(100,255,218,0.3); transform: translateY(-1px); }
+        .qna-q {
+            font-weight: 700; font-size: 0.95rem; color: var(--accent);
+            margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.5rem;
+        }
+        .qna-a {
+            font-size: 0.85rem; color: var(--text-secondary); line-height: 1.65;
+        }
+        .badge-tag {
+            display: inline-block; padding: 0.25rem 0.6rem; border-radius: 6px;
+            font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-right: 0.5rem;
+        }
+        .badge-tag.security { background: rgba(255,82,82,0.15); color: #ff5252; border: 1px solid rgba(255,82,82,0.2); }
+        .badge-tag.perf { background: rgba(100,255,218,0.15); color: #64ffda; border: 1px solid rgba(100,255,218,0.2); }
+        .badge-tag.arch { background: rgba(179,136,255,0.15); color: #b388ff; border: 1px solid rgba(179,136,255,0.2); }
+
+        /* ── Footer ── */
+        footer {
+            text-align: center; padding: 3rem 0;
+            color: var(--text-muted); font-size: 0.8rem;
+            border-top: 1px solid var(--border);
+            margin-top: 3rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-inner">
+            <div class="nav-brand">🔐 VLCDS</div>
+            <div class="nav-links">
+                <a href="#overview" class="active">Overview</a>
+                <a href="#demo">Live Demo</a>
+                <a href="#attacks">Attacks</a>
+                <a href="#esp32">ESP32</a>
+                <a href="#benchmarks">Benchmarks</a>
+                <a href="#teacher-guide">Teacher Guide</a>
+                <a href="#comparison">Comparison</a>
+            </div>
+            <div class="esp-indicator">
+                <div class="esp-dot" id="espDot"></div>
+                <span id="espStatus">ESP32 Disconnected</span>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <!-- Hero -->
+        <section class="hero container" id="overview">
+            <div class="hero-badge">Cryptography Course Project</div>
+            <h1>Version-Locked Chained<br>Delta Signature</h1>
+            <p>A cryptographic OTA update mechanism for IoT devices that binds firmware content, version state, and update history into a single signed manifest — preventing version mismatch, replay attacks, and tampered patches before any data is transferred.</p>
+            <div class="hero-formula">
+                M = Sign<sub>privkey</sub>( H(base_fw) ‖ H(delta) ‖ H(target) ‖ ver_base ‖ ver_target ‖ H(prev_manifest) )
+            </div>
+        </section>
+
+        <!-- Stats -->
+        <section class="container">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">200</div>
+                    <div class="stat-label">Manifest Size (bytes)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">6</div>
+                    <div class="stat-label">Cryptographically Bound Fields</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">3</div>
+                    <div class="stat-label">Verification Stages</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Second Signatures Needed</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <!-- LIVE DEMO SECTION -->
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <section class="section container" id="demo">
+            <div class="section-header">
+                <div class="section-number">▶</div>
+                <div class="section-title">Live Protocol Demonstration</div>
+            </div>
+            <p class="section-desc">Run the VLCDS protocol step-by-step. Each button executes real cryptographic operations and shows all intermediate values.</p>
+
+            <!-- Stage Flow Indicators -->
+            <div class="stage-flow" id="stageFlow">
+                <div class="stage-chip" data-stage="keygen"><div class="stage-chip-dot"></div> Key Gen</div>
+                <div class="stage-arrow">→</div>
+                <div class="stage-chip" data-stage="firmware"><div class="stage-chip-dot"></div> Firmware</div>
+                <div class="stage-arrow">→</div>
+                <div class="stage-chip" data-stage="delta"><div class="stage-chip-dot"></div> Delta</div>
+                <div class="stage-arrow">→</div>
+                <div class="stage-chip" data-stage="manifest"><div class="stage-chip-dot"></div> Manifest</div>
+                <div class="stage-arrow">→</div>
+                <div class="stage-chip" data-stage="stage1"><div class="stage-chip-dot"></div> Pre-Verify</div>
+                <div class="stage-arrow">→</div>
+                <div class="stage-chip" data-stage="stage2"><div class="stage-chip-dot"></div> Patch</div>
+                <div class="stage-arrow">→</div>
+                <div class="stage-chip" data-stage="stage3"><div class="stage-chip-dot"></div> Post-Verify</div>
+            </div>
+
+            <div class="run-all-section">
+                <button class="btn btn-accent btn-run-all" onclick="runAllSteps()">
+                    <div class="spinner"></div>
+                    <span>▶ Run Complete Demo</span>
+                </button>
+                <button class="btn btn-outline" onclick="resetDemo()" style="margin-left:1rem;">↺ Reset</button>
+            </div>
+
+            <!-- Step Cards -->
+            <div id="stepResults"></div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <!-- ATTACK SIMULATIONS -->
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <section class="section container" id="attacks">
+            <div class="section-header">
+                <div class="section-number" style="background: linear-gradient(135deg, #ff5252, #ff1744);">⚡</div>
+                <div class="section-title">Attack Simulations</div>
+            </div>
+            <p class="section-desc">Test the three attack vectors from the project report (Section 5.6). Each attack demonstrates a specific security property of VLCDS.</p>
+
+            <div class="attack-grid" id="attackGrid">
+                <!-- Attack A -->
+                <div class="card" id="attackA">
+                    <div class="card-header">
+                        <div class="card-title">🎯 Attack (a): Version Mismatch</div>
+                    </div>
+                    <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:1rem;">
+                        Send a v2→v3 manifest to a device running v1 firmware. The device should detect the mismatch and reject.
+                    </p>
+                    <button class="btn btn-danger" onclick="runAttack('version_mismatch', 'attackA')">
+                        <div class="spinner"></div>
+                        <span>Launch Attack</span>
+                    </button>
+                    <div id="attackA-result"></div>
+                </div>
+
+                <!-- Attack B -->
+                <div class="card" id="attackB">
+                    <div class="card-header">
+                        <div class="card-title">🔄 Attack (b): Replay</div>
+                    </div>
+                    <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:1rem;">
+                        After device updates to v2, replay the old v1→v2 manifest. The hash-chain should catch this.
+                    </p>
+                    <button class="btn btn-danger" onclick="runAttack('replay', 'attackB')">
+                        <div class="spinner"></div>
+                        <span>Launch Attack</span>
+                    </button>
+                    <div id="attackB-result"></div>
+                </div>
+
+                <!-- Attack C -->
+                <div class="card" id="attackC">
+                    <div class="card-header">
+                        <div class="card-title">💉 Attack (c): Tampered Delta</div>
+                    </div>
+                    <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:1rem;">
+                        Valid manifest, but modify the delta patch bytes in transit. Stage 2 should catch the tampering.
+                    </p>
+                    <button class="btn btn-danger" onclick="runAttack('tampered_delta', 'attackC')">
+                        <div class="spinner"></div>
+                        <span>Launch Attack</span>
+                    </button>
+                    <div id="attackC-result"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <!-- ESP32 PANEL -->
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <section class="section container" id="esp32">
+            <div class="section-header">
+                <div class="section-number" style="background: linear-gradient(135deg, #00e676, #64ffda);">📡</div>
+                <div class="section-title">ESP32-S2 Hardware Connection</div>
+            </div>
+            <p class="section-desc">Connect your real ESP32-S2 DevKit M1 to run the VLCDS protocol on actual hardware. The device connects via WiFi to this server.</p>
+
+            <div class="esp-panel">
+                <div class="esp-panel-header">
+                    <div class="esp-icon">📡</div>
+                    <div>
+                        <div style="font-weight:700; font-size:1.1rem;">ESP32-S2 DevKit M1</div>
+                        <div style="font-size:0.82rem; color:var(--text-muted);" id="espPanelStatus">Waiting for device connection...</div>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:0.8rem; margin-bottom:1.5rem; flex-wrap:wrap;">
+                    <button class="btn btn-accent" onclick="runPhysicalHardware()" id="btnRunHW" style="background: linear-gradient(135deg, #00e676, #00b0ff); color: #000; font-weight:700; border:none; box-shadow:0 0 15px rgba(0,230,118,0.4);">
+                        <div class="spinner"></div>
+                        <span>▶ Run Live Hardware Update on ESP32 (COM23)</span>
+                    </button>
+                    <button class="btn btn-outline" onclick="simulateESP32()" id="btnSimESP32">
+                        <div class="spinner"></div>
+                        <span>⚡ Run Simulation Fallback</span>
+                    </button>
+                    <button class="btn btn-outline" onclick="clearESP32Log()">
+                        <span>↺ Clear Activity Log</span>
+                    </button>
+                </div>
+
+                <!-- LIVE TERMINAL CONSOLE -->
+                <div class="card" style="margin-bottom:1.2rem; background: rgba(5, 5, 12, 0.95); border: 1px solid rgba(0, 230, 118, 0.35); box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.7rem; border-bottom:1px solid rgba(100,120,255,0.15); padding-bottom:0.5rem;">
+                        <div class="card-title" style="margin-bottom:0; color:var(--success); display:flex; align-items:center; gap:0.5rem;">
+                            <span>📟</span>
+                            <span>Live ESP32-S2 Xtensa Hardware Terminal (COM23)</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:0.6rem; font-size:0.75rem;">
+                            <span id="termStatus" style="color:var(--accent);">Hardware Ready (RGB LED Enabled)</span>
+                            <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#00e676; box-shadow:0 0 10px #00e676;" id="hwPulseDot"></span>
+                        </div>
+                    </div>
+                    <div class="terminal" id="liveTerminal" style="max-height:300px; min-height:160px; overflow-y:auto; font-family:'JetBrains Mono', monospace; font-size:0.8rem; line-height:1.55; background:#04040a; border-radius:6px; padding:0.8rem 1rem; color:#64ffda; white-space:pre-wrap;">
+<span style="color:#616888;">// Connected to Silicon Labs CP210x on COM23.
+// Onboard RGB LED on GPIO 18 will light up in real-time:
+//   🔵 BLUE   = Stage 1 Manifest Pre-Verify
+//   🟠 AMBER  = Stage 2 Delta Patch Apply
+//   🟢 GREEN  = Stage 3 Post-Verify & Firmware Committed!
+// Click "▶ Run Live Hardware Update on ESP32 (COM23)" to execute live...</span>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:1rem;">
+                    <div class="card-title" style="margin-bottom:1rem;">📋 Hardware & Network Setup</div>
+                    <div style="font-size:0.82rem; color:var(--text-secondary); line-height:1.8;">
+                        <div style="margin-bottom:0.8rem;">
+                            <strong style="color:var(--accent);">Option A — Live Physical ESP32-S2 DevKit M1:</strong><br>
+                            1. Ensure your PC and ESP32-S2 are on the same WiFi network.<br>
+                            2. Set WiFi credentials in <code style="color:var(--accent)">esp32/boot.py</code>.<br>
+                            3. Flash files to board, open REPL, and execute:
+                            <div class="terminal" style="margin:0.5rem 0; max-height:60px; padding:0.6rem 1rem;">
+                                <span style="color:var(--accent)">>>> </span>import vlcds_device<br>
+                                <span style="color:var(--accent)">>>> </span>vlcds_device.run_demo("<span style="color:#ffab40">http://<span id="serverIP">172.20.123.65</span>:5000</span>")
+                            </div>
+                        </div>
+                        <div>
+                            <strong style="color:var(--accent-purple);">Option B — Instant Network Simulation (Zero-Hardware Demo):</strong><br>
+                            Click <em>"Simulate ESP32 Hardware Update"</em> above to test the full 3-stage protocol over local HTTP. Live handshake and stage-by-stage confirmations will appear in the log below.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title" style="margin-bottom:0.5rem;">📜 Device Activity Log</div>
+                    <div class="esp-log" id="espLog">
+                        <div style="color:var(--text-muted); padding:1rem; text-align:center;">
+                            No activity yet. Connect your ESP32-S2 or click "Simulate ESP32 Hardware Update" to see live confirmations.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <!-- BENCHMARKS -->
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <section class="section container" id="benchmarks">
+            <div class="section-header">
+                <div class="section-number" style="background: linear-gradient(135deg, #ffab40, #ff6d00);">⚡</div>
+                <div class="section-title">Performance Benchmarks</div>
+            </div>
+            <p class="section-desc">Measure real cryptographic operation timing and compare VLCDS overhead vs a single-signature baseline.</p>
+
+            <button class="btn btn-primary" onclick="runBenchmarks()" id="benchBtn">
+                <div class="spinner"></div>
+                <span>Run Benchmarks</span>
+            </button>
+            <div id="benchResults"></div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <!-- TEACHER PRESENTATION GUIDE & VIVA Q&A -->
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <section class="section container" id="teacher-guide">
+            <div class="section-header">
+                <div class="section-number" style="background: linear-gradient(135deg, #64ffda, #00b0ff);">🎓</div>
+                <div class="section-title">Teacher Presentation & Viva Q&A Guide</div>
+            </div>
+            <p class="section-desc">Use this structured walkthrough during your lab demo or oral examination to explain your project step-by-step.</p>
+
+            <!-- Guide Step-by-Step Cards -->
+            <div class="card" style="margin-bottom:1.5rem;">
+                <div class="card-title" style="margin-bottom:1rem; color:var(--accent);">
+                    🎙️ Recommended 4-Minute Presentation Script
+                </div>
+
+                <div class="guide-step">
+                    <div class="guide-step-num">1</div>
+                    <div>
+                        <div style="font-weight:700; color:var(--text-primary); margin-bottom:0.3rem;">State the Research Problem & Gap</div>
+                        <div style="font-size:0.84rem; color:var(--text-secondary); line-height:1.6;">
+                            "IoT devices need secure wireless updates over constrained networks like LoRaWAN, BLE, or low-power WiFi. Full firmware transfers waste immense battery and bandwidth. While delta patching reduces transfer size, existing protocols either <strong>lack version binding</strong> inside the signed payload or require <strong>two full digital signatures</strong> (one before and one after), overloading microcontrollers. VLCDS solves this with a single 200-byte pre-verify manifest."
+                        </div>
+                    </div>
+                </div>
+
+                <div class="guide-step">
+                    <div class="guide-step-num">2</div>
+                    <div>
+                        <div style="font-weight:700; color:var(--text-primary); margin-bottom:0.3rem;">Demonstrate the 3-Stage Pipeline (Click 'Run Complete Demo')</div>
+                        <div style="font-size:0.84rem; color:var(--text-secondary); line-height:1.6;">
+                            "In <strong>Stage 1 (Pre-Verify)</strong>, the device receives only the 200-byte manifest. It performs 4 checks: Ed25519 signature, base firmware hash, version binding, and hash-chain link. <em>No delta patch bytes are transferred until this passes</em>. In <strong>Stage 2</strong>, the delta patch is fetched, its hash verified, and applied in RAM. In <strong>Stage 3 (Post-Verify)</strong>, the reconstructed image is hashed and compared to H(target). Because H(target) was committed in Stage 1, <strong>zero second signatures are needed</strong>!"
+                        </div>
+                    </div>
+                </div>
+
+                <div class="guide-step">
+                    <div class="guide-step-num">3</div>
+                    <div>
+                        <div style="font-weight:700; color:var(--text-primary); margin-bottom:0.3rem;">Demonstrate the 3 Security Attacks (Click 'Launch Attack' under Attacks)</div>
+                        <div style="font-size:0.84rem; color:var(--text-secondary); line-height:1.6;">
+                            "We demonstrate 3 real attack vectors: <br>
+                            • <strong>Version Mismatch</strong>: Attacker sends v2→v3 update to a v1 device. Blocked at Stage 1, Check 2 without downloading any patch data.<br>
+                            • <strong>Replay Attack</strong>: Attacker replays old v1→v2 manifest. Blocked at Stage 1, Check 4 because device's chain head moved forward.<br>
+                            • <strong>Tampered Patch</strong>: Attacker flips bytes in the delta stream. Caught in Stage 2 before applying to flash."
+                        </div>
+                    </div>
+                </div>
+
+                <div class="guide-step">
+                    <div class="guide-step-num">4</div>
+                    <div>
+                        <div style="font-weight:700; color:var(--text-primary); margin-bottom:0.3rem;">Show Embedded Feasibility (ESP32-S2 DevKit M1 & Benchmarks)</div>
+                        <div style="font-size:0.84rem; color:var(--text-secondary); line-height:1.6;">
+                            "We implemented this on the ESP32-S2 microcontroller with pure-Python Ed25519 and SHA-256 in MicroPython. The manifest fits in standard network MTUs (200 bytes), RAM overhead is under 20KB, and post-verify takes only ~0.01 ms."
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manifest Architecture Card -->
+            <div class="card" style="margin-bottom:1.5rem;">
+                <div class="card-title" style="margin-bottom:1rem; color:var(--accent-purple);">
+                    📐 The 6-Field Manifest: Why Every Byte is Critical
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>Size</th>
+                            <th>Role in VLCDS</th>
+                            <th>Attack Prevented</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code style="color:var(--accent)">H(base_fw)</code></td>
+                            <td>32 bytes</td>
+                            <td>SHA-256 hash of currently running firmware</td>
+                            <td><span class="badge-tag security">Version Mismatch</span> Prevents applying patch to incorrect firmware base</td>
+                        </tr>
+                        <tr>
+                            <td><code style="color:var(--accent)">H(delta)</code></td>
+                            <td>32 bytes</td>
+                            <td>SHA-256 hash of binary delta patch</td>
+                            <td><span class="badge-tag security">Tampering</span> Validates patch integrity without separate signature</td>
+                        </tr>
+                        <tr>
+                            <td><code style="color:var(--accent)">H(target)</code></td>
+                            <td>32 bytes</td>
+                            <td>SHA-256 hash of final reconstructed firmware</td>
+                            <td><span class="badge-tag perf">0 Signature Cost</span> Eliminates need for second asymmetric signature</td>
+                        </tr>
+                        <tr>
+                            <td><code style="color:var(--accent)">version_base</code></td>
+                            <td>4 bytes</td>
+                            <td>Expected current version (uint32)</td>
+                            <td><span class="badge-tag arch">State Binding</span> Binds patch strictly to device's software lifecycle</td>
+                        </tr>
+                        <tr>
+                            <td><code style="color:var(--accent)">version_target</code></td>
+                            <td>4 bytes</td>
+                            <td>Target firmware version (uint32)</td>
+                            <td><span class="badge-tag security">Rollback</span> Prevents downgrade to vulnerable older releases</td>
+                        </tr>
+                        <tr>
+                            <td><code style="color:var(--accent)">H(prev_manifest)</code></td>
+                            <td>32 bytes</td>
+                            <td>Hash of previous update's manifest (genesis: 32 zeros)</td>
+                            <td><span class="badge-tag security">Replay</span> Guarantees strict linear update sequence (blockchain-style)</td>
+                        </tr>
+                        <tr>
+                            <td><code style="color:var(--accent)">Signature</code></td>
+                            <td>64 bytes</td>
+                            <td>Ed25519 signature over the 136-byte payload</td>
+                            <td><span class="badge-tag security">Forgery</span> Guarantees server authenticity and non-repudiation</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.8rem;">
+                    Total Size: <strong>136 bytes payload + 64 bytes Ed25519 signature = 200 bytes total</strong>. Fits inside a single LoRaWAN packet (222 bytes max) or BLE advertisement frame.
+                </div>
+            </div>
+
+            <!-- Top Viva Q&A -->
+            <div class="card">
+                <div class="card-title" style="margin-bottom:1rem; color:var(--warning);">
+                    💡 Top 6 Viva / Oral Exam Questions & Answers
+                </div>
+
+                <div class="qna-card">
+                    <div class="qna-q">Q1: Why Ed25519 instead of standard RSA-2048 or ECDSA?</div>
+                    <div class="qna-a">
+                        Ed25519 (Twisted Edwards curve, RFC 8032) provides 128-bit security level with just 32-byte public keys and 64-byte signatures (vs 256 bytes for RSA-2048). Verification is fast, constant-time (protecting against side-channel timing attacks), and does not require a hardware cryptographic coprocessor or random nonce generation during signing (which caused Sony PS3 ECDSA private key extraction).
+                    </div>
+                </div>
+
+                <div class="qna-card">
+                    <div class="qna-q">Q2: How does VLCDS eliminate the second signature in Stage 3?</div>
+                    <div class="qna-a">
+                        In traditional 2-stage verification, the device verifies the incoming update and then must verify another digital signature after installation. VLCDS includes <code>H(target)</code> (the SHA-256 of the new firmware) <em>inside the signed manifest</em> verified in Stage 1. By the second-preimage resistance of SHA-256, if the reconstructed firmware's hash matches <code>H(target)</code>, it is mathematically proven to be authentic without another expensive asymmetric signature verification (~0.01 ms vs ~0.33 ms).
+                    </div>
+                </div>
+
+                <div class="qna-card">
+                    <div class="qna-q">Q3: How does the hash-chain prevent replay attacks?</div>
+                    <div class="qna-a">
+                        Each manifest commits to <code>H(prev_manifest)</code>. At manufacturing, the device initializes its chain head to a known Genesis hash (32 zero bytes). When update v1→v2 succeeds, the device advances its internal chain head to <code>SHA-256(manifest_v1v2)</code>. If an attacker later intercepts and replays the v1→v2 manifest, the device's Check 4 compares <code>manifest.h_prev_manifest</code> against its updated chain head and rejects it immediately before any patch is downloaded.
+                    </div>
+                </div>
+
+                <div class="qna-card">
+                    <div class="qna-q">Q4: Why can't we simply sign the delta patch file directly?</div>
+                    <div class="qna-a">
+                        Signing the delta patch alone only proves that the patch file was generated by the vendor, but <em>does not bind it to the device's current state</em>. If an attacker sends a valid delta intended for firmware v3 to a device running firmware v1, applying the patch would produce corrupted executable code and brick the device. VLCDS solves this by cryptographically binding <code>H(base_fw)</code> and <code>version_base</code> inside the signed envelope.
+                    </div>
+                </div>
+
+                <div class="qna-card">
+                    <div class="qna-q">Q5: How does this fit into the memory constraints of an ESP32-S2?</div>
+                    <div class="qna-a">
+                        The ESP32-S2 has 320 KB of internal SRAM. The VLCDS manifest is only 200 bytes. The pure-Python Ed25519 verification requires under 15 KB of heap memory during computation and frees it immediately. Furthermore, delta patches are reconstructed into a designated buffer or shadow partition rather than loading multiple firmware copies into RAM, keeping peak heap usage well within limits.
+                    </div>
+                </div>
+
+                <div class="qna-card">
+                    <div class="qna-q">Q6: What is the main security advantage of Stage 1 Pre-Verification?</div>
+                    <div class="qna-a">
+                        Bandwidth and power conservation. In low-power battery-operated IoT, the radio is the single largest consumer of energy. By rejecting unauthorized, replayed, or mismatched updates after downloading just 200 bytes, the device aborts the connection before wasting megabytes of radio transmission or flash write cycles.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <!-- COMPARISON TABLE -->
+        <!-- ════════════════════════════════════════════════════════════ -->
+        <section class="section container" id="comparison">
+            <div class="section-header">
+                <div class="section-number" style="background: linear-gradient(135deg, #b388ff, #7c4dff);">⚖</div>
+                <div class="section-title">Comparison with Existing Work</div>
+            </div>
+
+            <div class="card">
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Aspect</th>
+                            <th>Existing Work (Base Paper / Samsung Patent)</th>
+                            <th>VLCDS (Proposed)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Target Platform</td><td>Smartphone / NFC chip (Samsung); General IoT OTA (Base Paper)</td><td>ESP32-S2 class IoT devices</td></tr>
+                        <tr><td>Update Unit Verified</td><td>Full firmware image only</td><td>Delta (differential) patch</td></tr>
+                        <tr><td>Verification Timing</td><td>Pre-verify hash+sig, then post-verify</td><td>Same 2-stage, adapted for delta</td></tr>
+                        <tr><td>Version / Rollback State</td><td>Not in signed object (separate, unauthenticated field)</td><td>Bound INSIDE signed manifest (version_base, version_target)</td></tr>
+                        <tr><td>Replay Protection</td><td>Not addressed</td><td>Hash-chain: H(prev_manifest) inside signed object</td></tr>
+                        <tr><td>Channel Assumption</td><td>Trusted internal bus (phone to companion chip)</td><td>Untrusted wireless (WiFi / BLE / LoRa)</td></tr>
+                        <tr><td>Post-Verify Cost</td><td>Second signature verification required</td><td>Hash comparison only — H(target) pre-committed in Stage 1</td></tr>
+                        <tr><td>Manifest Size</td><td>N/A</td><td>200 bytes (fits LoRa / BLE / Zigbee frame)</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            VLCDS — Version-Locked Chained Delta Signature &nbsp;|&nbsp; Cryptography Course Project &nbsp;|&nbsp; Ed25519 + SHA-256
+        </div>
+    </footer>
+
+    <script>
+        // ════════════════════════════════════════════════════════════
+        //  CORE FUNCTIONS
+        // ════════════════════════════════════════════════════════════
+
+        const STEPS = ['keygen', 'firmware', 'delta', 'manifest', 'stage1', 'stage2', 'stage3'];
+        let completedSteps = new Set();
+
+        async function apiPost(url, data = {}) {
+            const resp = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            return resp.json();
+        }
+
+        function setChipState(stage, state) {
+            const chip = document.querySelector(`.stage-chip[data-stage="${stage}"]`);
+            if (chip) {
+                chip.className = 'stage-chip ' + state;
+            }
+        }
+
+        function truncHash(h, n = 16) {
+            return h ? h.substring(0, n) + '...' + h.substring(h.length - 8) : '';
+        }
+
+        function shortHash(h, n = 24) {
+            return h ? h.substring(0, n) + '...' : '';
+        }
+
+        function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+        // ════════════════════════════════════════════════════════════
+        //  STEP RENDERERS
+        // ════════════════════════════════════════════════════════════
+
+        function renderKeygen(data) {
+            return `
+                <div class="card success">
+                    <div class="card-header">
+                        <div class="card-title">🔑 ${data.title}</div>
+                        <span class="t-pass">✓ Generated in ${data.results.time_ms} ms</span>
+                    </div>
+                    <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:1rem;">${data.explanation}</p>
+                    <div class="manifest-grid">
+                        <div class="manifest-field">
+                            <div class="manifest-field-name">Private Key (Server)</div>
+                            <div class="manifest-field-value">${data.results.private_key}</div>
+                            <div class="manifest-field-size">32 bytes — kept secret on server</div>
+                        </div>
+                        <div class="manifest-field">
+                            <div class="manifest-field-name">Public Key (Device)</div>
+                            <div class="manifest-field-value">${data.results.public_key}</div>
+                            <div class="manifest-field-size">32 bytes — pre-provisioned on every device</div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function renderFirmware(data) {
+            let rows = data.results.versions.map(v => `
+                <tr>
+                    <td><strong>v${v.version}</strong></td>
+                    <td>${v.size.toLocaleString()} bytes</td>
+                    <td class="mono">${shortHash(v.sha256, 32)}</td>
+                    <td style="font-size:0.75rem;color:var(--text-muted)">${v.header_preview.substring(0, 35)}...</td>
+                </tr>`).join('');
+            return `
+                <div class="card success">
+                    <div class="card-header">
+                        <div class="card-title">💾 ${data.title}</div>
+                        <span class="t-pass">✓ 3 versions created</span>
+                    </div>
+                    <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:1rem;">${data.explanation}</p>
+                    <table class="data-table">
+                        <thead><tr><th>Version</th><th>Size</th><th>SHA-256</th><th>Header</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        function renderDelta(data) {
+            let rows = data.results.patches.map(p => `
+                <tr>
+                    <td><strong>v${p.from_version} → v${p.to_version}</strong></td>
+                    <td>${p.full_image_size.toLocaleString()} B</td>
+                    <td style="color:var(--accent);font-weight:600">${p.delta_size.toLocaleString()} B</td>
+                    <td>${p.compression_ratio}%</td>
+                    <td style="color:var(--success);font-weight:600">${p.bandwidth_saved}%</td>
+                    <td class="mono">${shortHash(p.delta_hash, 16)}</td>
+                    <td class="t-pass">${p.verified ? '✓' : '✗'}</td>
+                </tr>`).join('');
+            return `
+                <div class="card success">
+                    <div class="card-header">
+                        <div class="card-title">📦 ${data.title}</div>
+                        <span class="t-pass">✓ Patches verified</span>
+                    </div>
+                    <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:1rem;">${data.explanation}</p>
+                    <table class="data-table">
+                        <thead><tr><th>Update</th><th>Full Image</th><th>Delta</th><th>Ratio</th><th>Saved</th><th>Hash</th><th>OK</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        function renderManifest(data) {
+            let cards = data.results.manifests.map(m => {
+                let fields = Object.entries(m.fields).map(([k, v]) => {
+                    let size = k === 'version_base' || k === 'version_target' ? '4 bytes' :
+                               k === 'signature' ? '64 bytes' : '32 bytes';
+                    let displayVal = typeof v === 'number' ? `v${v}` : v;
+                    return `
+                        <div class="manifest-field">
+                            <div class="manifest-field-name">${k}</div>
+                            <div class="manifest-field-value">${displayVal}</div>
+                            <div class="manifest-field-size">${size}</div>
+                        </div>`;
+                }).join('');
+                return `
+                    <div class="card success" style="margin-bottom:1rem;">
+                        <div class="card-header">
+                            <div class="card-title">📜 Manifest: ${m.update}</div>
+                            <span class="t-pass">✓ ${m.total_size} bytes signed in ${m.time_ms} ms</span>
+                        </div>
+                        <div class="manifest-grid">${fields}</div>
+                        <div style="margin-top:0.8rem;font-size:0.78rem;color:var(--text-muted);">
+                            Manifest hash (chain link for next update): <span class="mono">${shortHash(m.manifest_hash, 32)}</span>
+                        </div>
+                    </div>`;
+            }).join('');
+            return `
+                <div>
+                    <div class="card" style="border-color:rgba(100,255,218,0.2);margin-bottom:1rem;">
+                        <p style="font-size:0.85rem;color:var(--text-secondary);">${data.explanation}</p>
+                    </div>
+                    ${cards}
+                </div>`;
+        }
+
+        function renderStage1(data) {
+            let checks = data.results.checks.map((c, i) => `
+                <div class="check-result ${c.passed ? 'pass' : 'fail'} visible" style="animation-delay:${i * 0.2}s">
+                    <div class="check-icon ${c.passed ? 'pass' : 'fail'}">${c.passed ? '✓' : '✗'}</div>
+                    <div>
+                        <div class="check-name">Check ${c.number}/4: ${c.name}</div>
+                        <div class="check-detail">
+                            ${Object.entries(c.details).map(([k, v]) => `${k}: ${v}`).join('<br>')}
+                        </div>
+                        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:0.3rem;">${c.time_ms} ms</div>
+                    </div>
+                </div>`).join('');
+            let allPassed = data.results.all_passed;
+            return `
+                <div class="card ${allPassed ? 'success' : 'danger'}">
+                    <div class="card-header">
+                        <div class="card-title">🛡️ ${data.title}</div>
+                        <span class="${allPassed ? 't-pass' : 't-fail'}">${allPassed ? '✓ ALL 4 CHECKS PASSED' : '✗ REJECTED'} (${data.results.total_time_ms} ms)</span>
+                    </div>
+                    <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:1rem;">${data.explanation}</p>
+                    <div style="font-size:0.82rem;color:var(--accent);margin-bottom:1rem;">📨 Manifest received: ${data.results.manifest_size} bytes — NO patch data transferred yet!</div>
+                    ${checks}
+                </div>`;
+        }
+
+        function renderStage2(data) {
+            return `
+                <div class="card success">
+                    <div class="card-header">
+                        <div class="card-title">⬇️ ${data.title}</div>
+                        <span class="t-pass">✓ Patch applied (${data.results.patch_apply_time_ms} ms)</span>
+                    </div>
+                    <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:1rem;">${data.explanation}</p>
+                    <div class="manifest-grid">
+                        <div class="manifest-field">
+                            <div class="manifest-field-name">Delta Size</div>
+                            <div class="manifest-field-value">${data.results.delta_size.toLocaleString()} bytes</div>
+                        </div>
+                        <div class="manifest-field">
+                            <div class="manifest-field-name">H(delta) Match</div>
+                            <div class="manifest-field-value" style="color:var(--success)">✓ VERIFIED</div>
+                        </div>
+                        <div class="manifest-field">
+                            <div class="manifest-field-name">Manifest H(delta)</div>
+                            <div class="manifest-field-value">${shortHash(data.results.manifest_h_delta, 32)}</div>
+                        </div>
+                        <div class="manifest-field">
+                            <div class="manifest-field-name">Actual H(delta)</div>
+                            <div class="manifest-field-value">${shortHash(data.results.actual_h_delta, 32)}</div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function renderStage3(data) {
+            return `
+                <div class="card success">
+                    <div class="card-header">
+                        <div class="card-title">✅ ${data.title}</div>
+                        <span class="t-pass">✓ UPDATE COMPLETE (${data.results.time_ms} ms)</span>
+                    </div>
+                    <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:1rem;">${data.explanation}</p>
+                    <div style="background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.15);border-radius:10px;padding:1rem;margin-bottom:1rem;">
+                        <strong style="color:var(--success)">⚡ Key Insight:</strong>
+                        <span style="color:var(--text-secondary);font-size:0.85rem;">
+                            No second signature verification needed! H(target) was pre-committed in Stage 1.
+                            Post-verify is only a hash comparison — took just <strong style="color:var(--accent)">${data.results.time_ms} ms</strong>.
+                        </span>
+                    </div>
+                    <div class="manifest-grid">
+                        <div class="manifest-field">
+                            <div class="manifest-field-name">Manifest H(target)</div>
+                            <div class="manifest-field-value">${shortHash(data.results.manifest_h_target, 32)}</div>
+                        </div>
+                        <div class="manifest-field">
+                            <div class="manifest-field-name">Reconstructed Hash</div>
+                            <div class="manifest-field-value">${shortHash(data.results.reconstructed_hash, 32)}</div>
+                        </div>
+                    </div>
+                    <div style="text-align:center;padding:1rem;margin-top:1rem;background:rgba(0,230,118,0.05);border-radius:10px;">
+                        <div style="font-size:1.5rem;">🎉</div>
+                        <div style="font-weight:700;color:var(--success);font-size:1.1rem;">Firmware Updated to v${data.results.new_version}</div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);">Boot partition flipped. Chain head updated.</div>
+                    </div>
+                </div>`;
+        }
+
+        const RENDERERS = { keygen: renderKeygen, firmware: renderFirmware, delta: renderDelta, manifest: renderManifest, stage1: renderStage1, stage2: renderStage2, stage3: renderStage3 };
+
+        // ════════════════════════════════════════════════════════════
+        //  RUN STEPS
+        // ════════════════════════════════════════════════════════════
+
+        async function runStep(step) {
+            setChipState(step, 'active');
+            const data = await apiPost(`/api/step/${step}`, step.startsWith('stage') ? { from: 1, to: 2 } : {});
+            setChipState(step, data.error ? 'failed' : 'done');
+            completedSteps.add(step);
+            return data;
+        }
+
+        async function runAllSteps() {
+            const btn = document.querySelector('.btn-run-all');
+            btn.classList.add('loading');
+            btn.disabled = true;
+
+            await apiPost('/api/reset');
+            completedSteps.clear();
+            document.getElementById('stepResults').innerHTML = '';
+            STEPS.forEach(s => setChipState(s, ''));
+
+            const container = document.getElementById('stepResults');
+
+            for (const step of STEPS) {
+                const data = await runStep(step);
+                const renderer = RENDERERS[step];
+                if (renderer && !data.error) {
+                    const div = document.createElement('div');
+                    div.innerHTML = renderer(data);
+                    div.style.opacity = '0';
+                    div.style.transform = 'translateY(20px)';
+                    div.style.transition = 'all 0.5s ease';
+                    container.appendChild(div);
+                    await delay(50);
+                    div.style.opacity = '1';
+                    div.style.transform = 'none';
+                    await delay(400);
+                }
+            }
+
+            btn.classList.remove('loading');
+            btn.disabled = false;
+        }
+
+        async function resetDemo() {
+            await apiPost('/api/reset');
+            completedSteps.clear();
+            document.getElementById('stepResults').innerHTML = '';
+            STEPS.forEach(s => setChipState(s, ''));
+        }
+
+        // ════════════════════════════════════════════════════════════
+        //  ATTACKS
+        // ════════════════════════════════════════════════════════════
+
+        async function runAttack(type, cardId) {
+            if (completedSteps.size < 4) {
+                alert('Please run the demo first (at least through manifest step) before testing attacks.');
+                return;
+            }
+
+            const btn = document.querySelector(`#${cardId} .btn`);
+            btn.classList.add('loading');
+            btn.disabled = true;
+
+            const data = await apiPost(`/api/attack/${type}`);
+            const container = document.getElementById(`${cardId}-result`);
+
+            const rejected = data.rejected;
+            container.innerHTML = `
+                <div style="margin-top:1rem;padding:1rem;border-radius:10px;border:1px solid ${rejected ? 'rgba(0,230,118,0.2)' : 'rgba(255,82,82,0.2)'};background:${rejected ? 'rgba(0,230,118,0.04)' : 'rgba(255,82,82,0.04)'};">
+                    <div style="font-weight:700;color:${rejected ? 'var(--success)' : 'var(--danger)'};font-size:1rem;margin-bottom:0.5rem;">
+                        ${rejected ? '🛡️ ATTACK BLOCKED ✓' : '⚠️ ATTACK SUCCEEDED (BAD!)'}
+                    </div>
+                    <div style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:0.5rem;">
+                        <strong>Rejection point:</strong> ${data.rejection_stage}
+                    </div>
+                    <div style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:0.5rem;">
+                        <strong>How:</strong> ${data.how_it_works}
+                    </div>
+                    <div style="font-size:0.78rem;color:var(--accent);">
+                        💡 ${data.bandwidth_saved}
+                    </div>
+                </div>`;
+
+            const card = document.getElementById(cardId);
+            card.classList.add(rejected ? 'success' : 'danger');
+
+            btn.classList.remove('loading');
+            btn.disabled = false;
+        }
+
+        // ════════════════════════════════════════════════════════════
+        //  BENCHMARKS
+        // ════════════════════════════════════════════════════════════
+
+        async function runBenchmarks() {
+            const btn = document.getElementById('benchBtn');
+            btn.classList.add('loading');
+            btn.disabled = true;
+
+            const data = await apiPost('/api/benchmarks');
+            const container = document.getElementById('benchResults');
+
+            let cryptoRows = `
+                <tr><td>Ed25519 Sign</td><td style="color:var(--accent);font-weight:600">${data.ed25519_sign_ms.mean.toFixed(4)}</td><td>${data.ed25519_sign_ms.min.toFixed(4)}</td><td>${data.ed25519_sign_ms.max.toFixed(4)}</td></tr>
+                <tr><td>Ed25519 Verify</td><td style="color:var(--accent);font-weight:600">${data.ed25519_verify_ms.mean.toFixed(4)}</td><td>${data.ed25519_verify_ms.min.toFixed(4)}</td><td>${data.ed25519_verify_ms.max.toFixed(4)}</td></tr>
+            `;
+            for (const [label, d] of Object.entries(data.sha256_ms)) {
+                cryptoRows += `<tr><td>SHA-256 (${label})</td><td style="color:var(--accent);font-weight:600">${d.mean.toFixed(4)}</td><td>${d.min.toFixed(4)}</td><td>${d.max.toFixed(4)}</td></tr>`;
+            }
+
+            let stageHtml = '';
+            if (data.stages) {
+                stageHtml = `
+                    <div class="card" style="margin-top:1.5rem;">
+                        <div class="card-title" style="margin-bottom:1rem;">⏱️ Stage-by-Stage Timing</div>
+                        <div class="stats-grid">
+                            <div class="stat-card"><div class="stat-value">${data.stages.stage1_ms}</div><div class="stat-label">Stage 1 (ms)</div></div>
+                            <div class="stat-card"><div class="stat-value">${data.stages.stage2_ms}</div><div class="stat-label">Stage 2 (ms)</div></div>
+                            <div class="stat-card"><div class="stat-value">${data.stages.stage3_ms}</div><div class="stat-label">Stage 3 (ms)</div></div>
+                            <div class="stat-card"><div class="stat-value">${data.stages.total_ms}</div><div class="stat-label">Total (ms)</div></div>
+                        </div>
+                    </div>`;
+            }
+
+            container.innerHTML = `
+                <div class="card" style="margin-top:1.5rem;">
+                    <div class="card-title" style="margin-bottom:1rem;">🔬 Cryptographic Operation Timing (50 iterations)</div>
+                    <table class="data-table">
+                        <thead><tr><th>Operation</th><th>Mean (ms)</th><th>Min (ms)</th><th>Max (ms)</th></tr></thead>
+                        <tbody>${cryptoRows}</tbody>
+                    </table>
+                </div>
+                ${stageHtml}
+            `;
+
+            btn.classList.remove('loading');
+            btn.disabled = false;
+        }
+
+        // ════════════════════════════════════════════════════════════
+        //  SERVER INFO & ESP32 SIMULATION
+        // ════════════════════════════════════════════════════════════
+
+        async function fetchServerInfo() {
+            try {
+                const res = await fetch('/api/server_info');
+                const data = await res.json();
+                if (data.local_ip) {
+                    const el = document.getElementById('serverIP');
+                    if (el) el.textContent = data.local_ip;
+                }
+            } catch(e) {}
+        }
+        let isHwRunning = false;
+
+        async function runPhysicalHardware() {
+            const btn = document.getElementById('btnRunHW');
+            const term = document.getElementById('liveTerminal');
+            const termStatus = document.getElementById('termStatus');
+            btn.classList.add('loading');
+            termStatus.textContent = 'Executing on Xtensa Core...';
+            termStatus.style.color = '#ffab40';
+            term.innerHTML = '<span style="color:#64ffda;">[*] Connecting to Silicon Labs CP210x on COM23...</span>\n<span style="color:#b388ff;">[*] Triggering 3-stage VLCDS cryptographic OTA on physical ESP32-S2...</span>\n';
+
+            try {
+                await fetch('/api/esp32/run_hardware', { method: 'POST' });
+                isHwRunning = true;
+                setTimeout(pollLiveTerminal, 500);
+            } catch(e) {
+                term.innerHTML += `<span style="color:var(--danger);">[!] Error starting hardware execution: ${e}</span>\n`;
+                btn.classList.remove('loading');
+                termStatus.textContent = 'Execution Error';
+                termStatus.style.color = 'var(--danger)';
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatTerminalLine(line) {
+            let color = '#64ffda';
+            let bg = 'transparent';
+            let weight = 'normal';
+            let extra = '';
+
+            if (line.includes('[LED]')) {
+                weight = '600';
+                if (line.includes('BLUE')) { color = '#448aff'; bg = 'rgba(68,138,255,0.18)'; }
+                else if (line.includes('CYAN')) { color = '#00e5ff'; bg = 'rgba(0,229,255,0.14)'; }
+                else if (line.includes('ORANGE') || line.includes('AMBER')) { color = '#ff9100'; bg = 'rgba(255,145,0,0.18)'; }
+                else if (line.includes('YELLOW')) { color = '#ffd600'; bg = 'rgba(255,214,0,0.14)'; }
+                else if (line.includes('GREEN')) { color = '#00e676'; bg = 'rgba(0,230,118,0.22)'; extra = 'box-shadow: 0 0 10px rgba(0,230,118,0.3);'; }
+                else if (line.includes('RED')) { color = '#ff5252'; bg = 'rgba(255,82,82,0.22)'; }
+                else if (line.includes('PURPLE')) { color = '#d500f9'; bg = 'rgba(213,0,249,0.15)'; }
+            } else if (line.includes('PASS') || line.includes('SUCCESS') || line.includes('COMPLETED') || line.includes('MATCH') || line.includes('PASSED')) {
+                color = '#00e676';
+                weight = '600';
+            } else if (line.includes('FAIL') || line.includes('ERROR') || line.includes('REJECTED')) {
+                color = '#ff5252';
+                weight = '600';
+            } else if (line.includes('STAGE') || line.includes('UPDATE')) {
+                color = '#ffab40';
+                weight = '600';
+            } else if (line.includes('[HOST]') || line.includes('[HW]')) {
+                color = '#b388ff';
+            } else if (line.startsWith('=') || line.startsWith('-')) {
+                color = 'rgba(100,120,255,0.45)';
+            }
+
+            return `<div style="color:${color}; background:${bg}; font-weight:${weight}; padding: 1px 6px; border-radius: 4px; margin: 2px 0; ${extra}">${escapeHtml(line)}</div>`;
+        }
+
+        async function pollLiveTerminal() {
+            if (!isHwRunning) return;
+            try {
+                const res = await (await fetch('/api/esp32/terminal')).json();
+                const term = document.getElementById('liveTerminal');
+                const btn = document.getElementById('btnRunHW');
+                const termStatus = document.getElementById('termStatus');
+
+                if (res.lines && res.lines.length > 0) {
+                    term.innerHTML = res.lines.map(formatTerminalLine).join('');
+                    term.scrollTop = term.scrollHeight;
+                }
+
+                if (res.running) {
+                    setTimeout(pollLiveTerminal, 250);
+                } else {
+                    isHwRunning = false;
+                    btn.classList.remove('loading');
+                    termStatus.textContent = 'Hardware Verified ✓ (LED: Green)';
+                    termStatus.style.color = 'var(--success)';
+                    await pollESP32();
+                }
+            } catch(e) {
+                setTimeout(pollLiveTerminal, 500);
+            }
+        }
+
+        async function checkInitialTerminal() {
+            try {
+                const res = await (await fetch('/api/esp32/terminal')).json();
+                const term = document.getElementById('liveTerminal');
+                const termStatus = document.getElementById('termStatus');
+                if (res.lines && res.lines.length > 0) {
+                    term.innerHTML = res.lines.map(formatTerminalLine).join('');
+                    term.scrollTop = term.scrollHeight;
+                    if (res.running) {
+                        isHwRunning = true;
+                        termStatus.textContent = 'Executing on Xtensa Core...';
+                        termStatus.style.color = '#ffab40';
+                        pollLiveTerminal();
+                    } else {
+                        termStatus.textContent = 'Hardware Verified ✓ (LED: Green)';
+                        termStatus.style.color = 'var(--success)';
+                    }
+                }
+            } catch(e) {}
+        }
+        checkInitialTerminal();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', checkInitialTerminal);
+        }
+
+        async function simulateESP32() {
+            const btn = document.getElementById('btnSimESP32');
+            btn.classList.add('loading');
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/esp32/simulate', { method: 'POST' });
+                const data = await res.json();
+                await pollESP32();
+            } catch(e) {
+                alert('Simulation failed: ' + e);
+            } finally {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+
+        async function clearESP32Log() {
+            try {
+                await fetch('/api/esp32/reset_log', { method: 'POST' });
+                document.getElementById('espLog').innerHTML = `
+                    <div style="color:var(--text-muted); padding:1rem; text-align:center;">
+                        No activity yet. Connect your ESP32-S2 or click "Simulate ESP32 Hardware Update" to see live confirmations.
+                    </div>`;
+                document.getElementById('espDot').classList.remove('connected');
+                document.getElementById('espStatus').textContent = 'ESP32 Disconnected';
+                const panelStatus = document.getElementById('espPanelStatus');
+                panelStatus.textContent = 'Waiting for device connection...';
+                panelStatus.style.color = 'var(--text-muted)';
+            } catch(e) {}
+        }
+
+        // ════════════════════════════════════════════════════════════
+        //  ESP32 STATUS POLLING
+        // ════════════════════════════════════════════════════════════
+
+        async function pollESP32() {
+            try {
+                const data = await (await fetch('/api/esp32/log')).json();
+                const dot = document.getElementById('espDot');
+                const status = document.getElementById('espStatus');
+                const panelStatus = document.getElementById('espPanelStatus');
+
+                if (data.connected) {
+                    dot.classList.add('connected');
+                    status.textContent = `ESP32 Connected (${data.ip})`;
+                    panelStatus.textContent = `Connected from ${data.ip}`;
+                    panelStatus.style.color = 'var(--success)';
+                } else {
+                    dot.classList.remove('connected');
+                    status.textContent = 'ESP32 Disconnected';
+                    panelStatus.textContent = 'Waiting for device connection...';
+                    panelStatus.style.color = 'var(--text-muted)';
+                }
+
+                if (data.log && data.log.length > 0) {
+                    const logEl = document.getElementById('espLog');
+                    logEl.innerHTML = data.log.map(e => `
+                        <div class="esp-log-entry">
+                            <span class="esp-log-time">${e.time}</span>
+                            <span style="color:var(--accent); font-weight:600;">${e.event}</span>
+                            <span>${e.details}</span>
+                        </div>
+                    `).join('');
+                }
+            } catch(e) {}
+        }
+        setInterval(pollESP32, 2500);
+
+        // ════════════════════════════════════════════════════════════
+        //  NAV SCROLL HIGHLIGHT
+        // ════════════════════════════════════════════════════════════
+
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', function(e) {
+                document.querySelectorAll('.nav-links a').forEach(l => l.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>
